@@ -26,7 +26,30 @@ const ai = new GoogleGenAI({
 
 const DEFAULT_MODEL = "gemini-3.8-flash";
 
-// Helper to format system prompt with student personalization
+// Helper to safely parse JSON from Gemini responses that might contain markdown fences
+function parseJsonSafely(text?: string, fallback: any = []): any {
+  if (!text) return fallback;
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```json")) {
+    cleaned = cleaned.replace(/^```json\s*/, "").replace(/\s*```$/, "");
+  } else if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```\s*/, "").replace(/\s*```$/, "");
+  }
+  try {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/) || cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (inner) {
+        console.warn("Failed inner regex JSON parse:", inner);
+      }
+    }
+    console.warn("Failed to parse JSON safely, returning fallback:", e);
+    return fallback;
+  }
+}
 function getPersonalizedSystemPrompt(profile?: {
   grade?: string;
   subject?: string;
@@ -305,7 +328,7 @@ Provide 4 plausible choices for each question, mark the correct 0-indexed choice
       },
     });
 
-    const parsed = JSON.parse(response.text?.trim() || "[]");
+    const parsed = parseJsonSafely(response.text, []);
     res.json({ questions: parsed });
   } catch (err: any) {
     console.error("Error in /api/quiz:", err);
@@ -329,12 +352,20 @@ ${code || ""}
 \`\`\`
 Issue or student's question: "${question || "Find any errors or logic bugs in this code"}"
 
-Please provide:
-1. **Bug Identification**: Exact line number and what caused the error (Syntax / Runtime / Logic).
-2. **Step-by-Step Explanation**: Why this behavior occurred in plain terms.
-3. **Corrected Code**: Clean, well-commented code block.
-4. **Key Learning Tip**: How to avoid this common bug in the future.
-5. **Time & Space Complexity**: Brief note on performance.`;
+Please structure your response with:
+1. **Bug Identification & Classification**:
+   - Error Type: (e.g. Syntax Error / IndexError / ZeroDivisionError / Infinite Loop / Logic Bug)
+   - Problematic Line Number(s): (e.g. Line 5)
+   - Root Cause: (Clear explanation in simple terms)
+2. **Corrected Code**:
+Provide the complete working replacement code inside a single standard markdown code block:
+\`\`\`${language.toLowerCase()}
+# corrected code here
+\`\`\`
+3. **Step-by-Step Fix Explanation**: Exactly what was changed and why.
+4. **Dry-Run Trace Table**: Step-by-step variable values for a sample test input.
+5. **Key Prevention Tip**: How to avoid this common trap in the future.
+6. **Complexity Analysis**: Time and Space complexity.`;
     } else if (mode === "explain") {
       prompt = `Explain the following ${language} code or concept step-by-step for a student:
 \`\`\`${language.toLowerCase()}
@@ -363,11 +394,33 @@ Provide a crystal-clear tutorial with practical code examples, comments, and out
       contents: prompt,
       config: {
         systemInstruction: systemPrompt,
-        temperature: 0.4,
+        temperature: 0.3,
       },
     });
 
-    res.json({ text: response.text });
+    const fullText = response.text || "";
+
+    // Extract the corrected code snippet if in debug mode
+    let fixedCode: string | null = null;
+    if (mode === "debug") {
+      const codeMatches = fullText.match(/```(?:[a-zA-Z0-9_-]*)\n([\s\S]*?)```/g);
+      if (codeMatches && codeMatches.length > 0) {
+        // Find the code block that represents the corrected code
+        for (const match of codeMatches) {
+          const stripped = match.replace(/```(?:[a-zA-Z0-9_-]*)\n/, "").replace(/```$/, "").trim();
+          if (stripped && stripped.length > 10) {
+            fixedCode = stripped;
+            break;
+          }
+        }
+      }
+    }
+
+    res.json({
+      text: fullText,
+      fixedCode,
+      language,
+    });
   } catch (err: any) {
     console.error("Error in /api/code-helper:", err);
     res.status(500).json({ error: err.message || "Failed to process code request." });
