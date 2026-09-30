@@ -1,0 +1,8 @@
+{
+  "name": "Gemini Learning Assistant",
+  "description": "An intelligent AI Learning Assistant powered by Google Gemini to simplify concepts, generate study notes, exam preparation answers, interactive quizzes, and coding support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
