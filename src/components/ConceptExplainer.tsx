@@ -14,6 +14,7 @@ import {
 
 interface ConceptExplainerProps {
   profile: StudentProfile;
+  onActivityLogged?: (title: string, detail?: string) => void;
 }
 
 const TOPIC_SUGGESTIONS = [
@@ -28,7 +29,10 @@ const TOPIC_SUGGESTIONS = [
   "Normal Distribution & Bell Curve",
 ];
 
-export const ConceptExplainer: React.FC<ConceptExplainerProps> = ({ profile }) => {
+export const ConceptExplainer: React.FC<ConceptExplainerProps> = ({
+  profile,
+  onActivityLogged,
+}) => {
   const [topic, setTopic] = useState("");
   const [detailLevel, setDetailLevel] = useState<"quick" | "standard" | "deep">("standard");
   const [result, setResult] = useState<string | null>(null);
@@ -70,6 +74,9 @@ export const ConceptExplainer: React.FC<ConceptExplainerProps> = ({ profile }) =
 
       const data = await res.json();
       setResult(data.text);
+      if (onActivityLogged) {
+        onActivityLogged("Explored Concept: " + q, `Beginner-friendly explanation`);
+      }
     } catch (err: any) {
       setError(err.message || "An error occurred while generating explanation.");
     } finally {

@@ -16,6 +16,7 @@ import {
 
 interface TutorChatProps {
   profile: StudentProfile;
+  onActivityLogged?: (title: string, detail?: string) => void;
 }
 
 const SAMPLE_PROMPTS_BY_SUBJECT: Record<string, string[]> = {
@@ -51,16 +52,16 @@ const SAMPLE_PROMPTS_BY_SUBJECT: Record<string, string[]> = {
   ],
 };
 
-export const TutorChat: React.FC<TutorChatProps> = ({ profile }) => {
+export const TutorChat: React.FC<TutorChatProps> = ({ profile, onActivityLogged }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: "welcome-1",
       role: "model",
-      content: `Hello **${profile.name}**! 👋 I am your **Google Gemini Powered Learning Assistant**.
+      content: `Hello **${profile.name}**! 👋 I am **EduGenie**, your personal AI Learning Assistant.
 
 I am configured for **${profile.grade}** focusing on **${profile.subject}** (${profile.language} mode).
 
-Ask me any question, paste a problem you are stuck on, or ask for simple analogies! How can I help your study session today?`,
+Ask me any academic question, paste a problem you're trying to solve, or ask for simple analogies. I'll explain concepts step-by-step!`,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);
@@ -121,6 +122,12 @@ Ask me any question, paste a problem you are stuck on, or ask for simple analogi
       };
 
       setMessages((prev) => [...prev, modelMessage]);
+      if (onActivityLogged) {
+        onActivityLogged(
+          "Asked Academic Question",
+          textToSend.slice(0, 50) + (textToSend.length > 50 ? "..." : "")
+        );
+      }
     } catch (err: any) {
       const errorMessage: ChatMessage = {
         id: `err-${Date.now()}`,

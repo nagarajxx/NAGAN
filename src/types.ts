@@ -44,12 +44,32 @@ export interface QuizQuestion {
   conceptTag?: string;
 }
 
-export type ActiveTab =
-  | "chat"
-  | "explain"
-  | "notes"
-  | "exam"
-  | "quiz"
-  | "code"
-  | "planner"
-  | "hints";
+export type EduGenieTab =
+  | "ask"        // 1. Ask Questions
+  | "explain"    // 2. Simple Explanation
+  | "summarize"  // 3. Summarize Notes
+  | "quiz"       // 4. Quiz Generator
+  | "study"      // 5. Study Assistant
+  | "code"       // 6. Code Learning
+  | "progress";  // 7. Learning Progress
+
+export type ActiveTab = EduGenieTab | "exam" | "hints" | "chat" | "notes" | "planner";
+
+export interface LearningActivityItem {
+  id: string;
+  type: "ask" | "explain" | "summarize" | "quiz" | "study" | "code";
+  title: string;
+  detail?: string;
+  timestamp: string;
+}
+
+export interface LearningProgressState {
+  questionsAsked: number;
+  notesSummarized: number;
+  quizzesTaken: number;
+  correctAnswers: number;
+  totalQuestionsAttempted: number;
+  streakDays: number;
+  masteredTopics: string[];
+  recentActivities: LearningActivityItem[];
+}

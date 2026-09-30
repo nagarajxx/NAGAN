@@ -20,15 +20,16 @@ import {
 
 interface CodeLabProps {
   profile: StudentProfile;
+  onActivityLogged?: (title: string, detail?: string) => void;
 }
 
 const PROGRAMMING_LANGUAGES = [
-  "Python",
-  "JavaScript",
-  "TypeScript",
   "Java",
-  "C++",
+  "Python",
   "C",
+  "JavaScript",
+  "C++",
+  "TypeScript",
   "SQL",
 ];
 
@@ -42,7 +43,44 @@ interface BugPreset {
 
 const BUG_PRESETS: BugPreset[] = [
   {
-    title: "Off-by-One Index Error",
+    title: "Java String Equality (== vs .equals)",
+    category: "LogicBug",
+    lang: "Java",
+    code: `public class Main {
+    public static void main(String[] args) {
+        String inputPassword = new String("secret123");
+        String actualPassword = "secret123";
+
+        // Bug: '==' compares object memory reference, not string value!
+        if (inputPassword == actualPassword) {
+            System.out.println("Access Granted!");
+        } else {
+            System.out.println("Access Denied!");
+        }
+    }
+}`,
+    question: "Why does Java print 'Access Denied!' even though both passwords have identical characters?",
+  },
+  {
+    title: "C Scanf Missing Address Operator &",
+    category: "MemoryBug",
+    lang: "C",
+    code: `#include <stdio.h>
+
+int main() {
+    int studentAge;
+    printf("Enter your age: ");
+    
+    // Bug: scanf expects a pointer &studentAge, not the raw integer value!
+    scanf("%d", studentAge); 
+    
+    printf("Age recorded: %d\\n", studentAge);
+    return 0;
+}`,
+    question: "Why does this C program crash with a Segmentation Fault (Core Dumped)?",
+  },
+  {
+    title: "Python Off-by-One Loop Error",
     category: "IndexError",
     lang: "Python",
     code: `def calculate_average(grades):
@@ -57,46 +95,7 @@ print("Class Average:", calculate_average(scores))`,
     question: "This throws IndexError: list index out of range at the last step. How do I fix it?",
   },
   {
-    title: "Infinite Loop Missing Increment",
-    category: "InfiniteLoop",
-    lang: "JavaScript",
-    code: `function findFirstPrime(limit) {
-    let num = 2;
-    while (num < limit) {
-        let isPrime = true;
-        for (let d = 2; d * d <= num; d++) {
-            if (num % d === 0) {
-                isPrime = false;
-                break;
-            }
-        }
-        if (isPrime) return num;
-        // Bug: forgot to increment num++! Freezes the browser
-    }
-    return -1;
-}
-
-console.log(findFirstPrime(20));`,
-    question: "Why does this script freeze or hang indefinitely without producing output?",
-  },
-  {
-    title: "Mutable Default Argument Trap",
-    category: "LogicBug",
-    lang: "Python",
-    code: `def register_student(name, enrolled_courses=[]):
-    # Bug: enrolled_courses default list is created ONCE at function definition!
-    enrolled_courses.append(name)
-    return enrolled_courses
-
-batch_a = register_student("Karthik")
-batch_b = register_student("Sneha")
-
-print("Batch A:", batch_a)
-print("Batch B:", batch_b) # Unexpectedly contains both Karthik and Sneha!`,
-    question: "Why does Batch B contain names from Batch A? Explain this classic Python trap.",
-  },
-  {
-    title: "Unresolved Promise (Async/Await)",
+    title: "JavaScript Unresolved Promise",
     category: "AsyncBug",
     lang: "JavaScript",
     code: `async function fetchStudentGrade(studentId) {
@@ -114,42 +113,10 @@ function displayReport(studentId) {
 displayReport(101);`,
     question: "Why is studentData.score undefined even though the async function returns { score: 95 }?",
   },
-  {
-    title: "Integer Truncation Division",
-    category: "ArithmeticBug",
-    lang: "C++",
-    code: `#include <iostream>
-
-int main() {
-    int mathMarks = 85;
-    int maxMarks = 100;
-    
-    // Bug: integer / integer results in integer truncation (0)!
-    double percentage = (mathMarks / maxMarks) * 100;
-    
-    std::cout << "Calculated Percentage: " << percentage << "%" << std::endl;
-    return 0;
-}`,
-    question: "Why does this print 0% instead of 85%?",
-  },
-  {
-    title: "SQL Missing GROUP BY in Aggregate",
-    category: "SQLSyntax",
-    lang: "SQL",
-    code: `-- Target: Get average mark per department
-SELECT 
-    department_name,
-    COUNT(student_id) AS total_students,
-    AVG(final_grade) AS avg_grade
-FROM student_records
--- Bug: Missing GROUP BY department_name!
-WHERE semester = 'Fall 2026';`,
-    question: "Why does the SQL engine return 'column department_name must appear in the GROUP BY clause'?",
-  },
 ];
 
-export const CodeLab: React.FC<CodeLabProps> = ({ profile }) => {
-  const [language, setLanguage] = useState<string>("Python");
+export const CodeLab: React.FC<CodeLabProps> = ({ profile, onActivityLogged }) => {
+  const [language, setLanguage] = useState<string>("Java");
   const [mode, setMode] = useState<"debug" | "explain" | "tutorial">("debug");
   const [code, setCode] = useState<string>(BUG_PRESETS[0].code);
   const [question, setQuestion] = useState<string>(BUG_PRESETS[0].question);
@@ -228,6 +195,12 @@ export const CodeLab: React.FC<CodeLabProps> = ({ profile }) => {
       setResult(data.text);
       if (data.fixedCode) {
         setFixedCode(data.fixedCode);
+      }
+      if (onActivityLogged) {
+        onActivityLogged(
+          `Analyzed ${language} Code`,
+          mode === "debug" ? "Debugged and fixed syntax/logic issue" : "Line-by-line concept breakdown"
+        );
       }
     } catch (err: any) {
       setError(err.message || "Failed to process code.");

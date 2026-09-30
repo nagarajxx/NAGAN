@@ -14,13 +14,19 @@ import {
 
 interface StudyPlannerViewProps {
   profile: StudentProfile;
+  onActivityLogged?: (title: string, detail?: string) => void;
 }
 
-export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({ profile }) => {
+export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({
+  profile,
+  onActivityLogged,
+}) => {
+  const [plannerMode, setPlannerMode] = useState<"schedule" | "breakdown">("schedule");
   const [goal, setGoal] = useState("Ace upcoming term exams with solid conceptual understanding");
   const [subjects, setSubjects] = useState("Physics (Optics & Waves), Mathematics (Calculus), Chemistry (Bonding)");
   const [hoursPerDay, setHoursPerDay] = useState<number>(3);
   const [examDate, setExamDate] = useState("In 2 weeks");
+  const [topicToBreakdown, setTopicToBreakdown] = useState("Organic Chemistry: Hydrocarbons & Reaction Mechanisms");
   const [plan, setPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,20 +43,30 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({ profile }) =
   const [newTaskText, setNewTaskText] = useState("");
 
   const handleGeneratePlan = async () => {
-    if (!subjects.trim() || loading) return;
+    const isBreakdown = plannerMode === "breakdown";
+    const targetPayload = isBreakdown ? topicToBreakdown : subjects;
+    if (!targetPayload.trim() || loading) return;
 
     setLoading(true);
     setError(null);
 
     try {
+      const promptInstruction = isBreakdown
+        ? `Break down the large topic "${topicToBreakdown}" into 4 to 6 smaller, bite-sized learning sections for a student. Each section should have:
+1. Section Name & Estimated Duration (20-30 mins)
+2. Core Micro-Concepts covered
+3. Practice Question / Self-Check checkpoint
+4. One practical analogy`
+        : undefined;
+
       const res = await fetch("/api/study-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          subjects,
+          subjects: isBreakdown ? `Topic Breakdown: ${topicToBreakdown}` : subjects,
           examDate,
           hoursPerDay,
-          goal,
+          goal: isBreakdown ? `Break down "${topicToBreakdown}" into small learning modules` : goal,
           profile,
         }),
       });
@@ -62,6 +78,12 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({ profile }) =
 
       const data = await res.json();
       setPlan(data.text);
+      if (onActivityLogged) {
+        onActivityLogged(
+          isBreakdown ? "Broke down topic: " + topicToBreakdown.slice(0, 30) : "Created Study Plan",
+          isBreakdown ? "Modular learning breakdown" : `${hoursPerDay}h/day timetable`
+        );
+      }
     } catch (err: any) {
       setError(err.message || "Failed to generate plan.");
     } finally {
@@ -112,68 +134,114 @@ export const StudyPlannerView: React.FC<StudyPlannerViewProps> = ({ profile }) =
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Form Inputs (2 Cols) */}
         <div className="lg:col-span-2 p-5 sm:p-6 rounded-2xl bg-slate-900 border border-slate-800 shadow-lg space-y-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
-              <Target className="w-3.5 h-3.5 text-indigo-400" />
-              Primary Goal / Milestone
-            </label>
-            <input
-              type="text"
-              value={goal}
-              onChange={(e) => setGoal(e.target.value)}
-              placeholder="e.g. Master Organic Reactions before unit test, score 95% in Math..."
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            />
+          {/* Mode Switcher */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setPlannerMode("schedule")}
+              className={`flex-1 py-1.5 px-3 rounded-lg font-medium transition-colors cursor-pointer ${
+                plannerMode === "schedule"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              📅 Daily / Weekly Study Plan
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlannerMode("breakdown")}
+              className={`flex-1 py-1.5 px-3 rounded-lg font-medium transition-colors cursor-pointer ${
+                plannerMode === "breakdown"
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              ✂️ Break Large Topic Into Modules
+            </button>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-              Subjects or Chapters to Cover
-            </label>
-            <textarea
-              value={subjects}
-              onChange={(e) => setSubjects(e.target.value)}
-              rows={2}
-              placeholder="e.g. Calculus (Integration), Physics (Thermodynamics), History (Ch 3-4)"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                  Daily Available Study Time
-                </span>
-                <span className="text-indigo-300 font-mono font-bold">
-                  {hoursPerDay} {hoursPerDay === 1 ? "hour" : "hours"}/day
-                </span>
+          {plannerMode === "schedule" ? (
+            <>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5 text-indigo-400" />
+                  Primary Goal / Milestone
+                </label>
+                <input
+                  type="text"
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  placeholder="e.g. Master Organic Reactions before unit test, score 95% in Math..."
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
               </div>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={0.5}
-                value={hoursPerDay}
-                onChange={(e) => setHoursPerDay(parseFloat(e.target.value))}
-                className="w-full accent-indigo-500 cursor-pointer"
-              />
-            </div>
 
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                  Subjects or Chapters to Cover
+                </label>
+                <textarea
+                  value={subjects}
+                  onChange={(e) => setSubjects(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Calculus (Integration), Physics (Thermodynamics), History (Ch 3-4)"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                      Daily Available Study Time
+                    </span>
+                    <span className="text-indigo-300 font-mono font-bold">
+                      {hoursPerDay} {hoursPerDay === 1 ? "hour" : "hours"}/day
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={0.5}
+                    value={hoursPerDay}
+                    onChange={(e) => setHoursPerDay(parseFloat(e.target.value))}
+                    className="w-full accent-indigo-500 cursor-pointer"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
+                    Exam Deadline / Target Date
+                  </label>
+                  <input
+                    type="text"
+                    value={examDate}
+                    onChange={(e) => setExamDate(e.target.value)}
+                    placeholder="e.g. In 10 days, or Next Monday"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">
-                Exam Deadline / Target Date
+                Large Subject or Chapter to Break Down
               </label>
               <input
                 type="text"
-                value={examDate}
-                onChange={(e) => setExamDate(e.target.value)}
-                placeholder="e.g. In 10 days, or Next Monday"
+                value={topicToBreakdown}
+                onChange={(e) => setTopicToBreakdown(e.target.value)}
+                placeholder="e.g. Newton's Laws & Friction, Operating System Concurrency, Photosynthesis..."
                 className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               />
+              <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
+                EduGenie will break this large topic into 4 to 6 bite-sized 20–30 minute study modules with milestones and self-tests.
+              </p>
             </div>
-          </div>
+          )}
 
           <button
             onClick={handleGeneratePlan}

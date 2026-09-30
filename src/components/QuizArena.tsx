@@ -14,6 +14,7 @@ import {
 
 interface QuizArenaProps {
   profile: StudentProfile;
+  onQuizCompleted?: (score: number, total: number, topic: string) => void;
 }
 
 const SAMPLE_QUIZ_TOPICS = [
@@ -25,7 +26,7 @@ const SAMPLE_QUIZ_TOPICS = [
   "Chemical Bonding & Valency",
 ];
 
-export const QuizArena: React.FC<QuizArenaProps> = ({ profile }) => {
+export const QuizArena: React.FC<QuizArenaProps> = ({ profile, onQuizCompleted }) => {
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState<number>(5);
   const [difficulty, setDifficulty] = useState<string>("Medium");
@@ -93,6 +94,10 @@ export const QuizArena: React.FC<QuizArenaProps> = ({ profile }) => {
       setCurrentIndex((prev) => prev + 1);
     } else {
       setIsCompleted(true);
+      if (onQuizCompleted) {
+        const finalScore = calculateScore();
+        onQuizCompleted(finalScore, questions.length, topic);
+      }
     }
   };
 
