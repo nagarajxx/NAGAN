@@ -842,11 +842,15 @@ async function startServer() {
     });
   }
 
-  app.listen(Number(PORT), "0.0.0.0", () => {
-    console.log(`Learning Assistant server running on port ${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(Number(PORT), "0.0.0.0", () => {
+      console.log(`Learning Assistant server running on port ${PORT}`);
+    });
+  }
 }
 
 startServer().catch((err) => {
   console.error("Failed to start server:", err);
 });
+
+export default app;
